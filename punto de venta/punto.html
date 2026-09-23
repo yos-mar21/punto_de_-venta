@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Punto de venta de On Coffee">
+  <title>On Coffee | Punto de venta</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/order.css">
+  <link rel="stylesheet" href="css/modal.css">
+  <link rel="stylesheet" href="css/print.css">
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">☕</div>
+      <div>
+        <h1>On Coffee</h1>
+        <div class="sub" id="dateSub"></div>
+      </div>
+    </div>
+    <button class="edit-toggle" id="editToggle">Editar menú</button>
+  </header>
+
+  <main>
+    <div class="menu-wrap">
+      <div class="menu-scroll" id="menuScroll"></div>
+    </div>
+
+    <div class="order-panel">
+      <div class="order-header"><h2>Pedido actual</h2></div>
+      <div class="order-list" id="orderList"></div>
+      <div class="total-strip">
+        <div class="total-row">
+          <span class="total-label">Subtotal</span>
+          <span class="total-value" id="subtotalAmount">$0</span>
+        </div>
+        <div class="total-row tax-row">
+          <span class="total-label">IVA Tijuana (8%)</span>
+          <span class="total-value" id="ivaAmount">$0</span>
+        </div>
+        <div class="total-row total-final-row">
+          <span class="total-label">Total a cobrar</span>
+          <span class="total-amount" id="totalAmount">$0</span>
+        </div>
+      </div>
+      <div class="order-footer">
+        <button class="btn btn-secondary" id="printBtn" disabled>Ticket cliente</button>
+        <button class="btn btn-primary" id="newOrderBtn" disabled>Nuevo pedido</button>
+      </div>
+      <button class="report-btn" id="reportBtn">Descargar reporte Excel</button>
+    </div>
+  </main>
+</div>
+
+<div id="receipt"></div>
+
+<div class="modal-overlay" id="milkOverlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modalItemName"></h3>
+      <div class="modal-price" id="modalItemPrice"></div>
+    </div>
+    <div class="modal-label">Tipo de leche</div>
+    <div class="milk-chips" id="milkChips"></div>
+    <div class="modal-qty">
+      <span>Cantidad</span>
+      <div class="stepper">
+        <button id="modalQtyMinus">−</button>
+        <span id="modalQtyValue">1</span>
+        <button id="modalQtyPlus">+</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="modalCancel">Cancelar</button>
+      <button class="btn btn-primary" id="modalConfirm">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const CATEGORIES = [
+    { id: 'barra', label: 'Barra tradicional', icon: '' },
+    { id: 'lattes', label: 'Lattes', icon: '' },
+    { id: 'especialidades', label: 'Especialidades', icon: '' },
+    { id: 'tes', label: 'Tés y tisanas', icon: '' },
+    { id: 'frappes', label: 'Frappes', icon: '' },
+    { id: 'extras', label: 'Extras', icon: '' },
+  ];
+
+  const MILK_OPTIONS = [
+    { id: 'entera', label: 'Entera' },
+    { id: 'deslact', label: 'Deslactosada' },
+    { id: 'avena', label: 'Avena' },
+  ];
+
+  const DEFAULT_MENU = [
+    { id: 'espresso', name: 'Espresso', price: 45, category: 'barra' },
+    { id: 'espresso_cortado', name: 'Espresso cortado', price: 60, category: 'barra', hasMilk: true },
+    { id: 'americano', name: 'Americano', price: 55, category: 'barra' },
+    { id: 'americano_corto', name: 'Americano corto', price: 50, category: 'barra' },
+    { id: 'macchiato', name: 'Macchiato', price: 50, category: 'barra', hasMilk: true },
+    { id: 'flat_white', name: 'Flat white', price: 60, category: 'barra', hasMilk: true },
+    { id: 'cappuccino', name: 'Cappuccino', price: 60, category: 'barra', hasMilk: true },
+    { id: 'latte_natural', name: 'Natural', price: 70, category: 'lattes', hasMilk: true },
+    { id: 'latte_jarabe', name: 'Con jarabe artesanal', price: 80, category: 'lattes', hasMilk: true },
+    { id: 'mocha', name: 'Mocha', price: 75, category: 'especialidades', hasMilk: true },
+    { id: 'mocha_blanco', name: 'Mocha blanco', price: 85, category: 'especialidades', hasMilk: true },
+    { id: 'matcha_latte', name: 'Matcha latte', price: 85, category: 'especialidades', hasMilk: true },
+    { id: 'chai_platano', name: 'Chai de plátano', price: 70, category: 'especialidades', hasMilk: true },
+    { id: 'chai_especias', name: 'Chai de especias', price: 70, category: 'especialidades', hasMilk: true },
+    { id: 'chai_vainilla', name: 'Chai de vainilla', price: 70, category: 'especialidades', hasMilk: true },
+    { id: 'dirty_chai', name: 'Dirty chai', price: 85, category: 'especialidades', hasMilk: true },
+    { id: 'chocolate_primor', name: 'Chocolate Primor', price: 75, category: 'especialidades', hasMilk: true },
+    { id: 'manzanilla_menta', name: 'Manzanilla menta', price: 60, category: 'tes' },
+    { id: 'fresa_kiwi', name: 'Fresa kiwi', price: 70, category: 'tes' },
+    { id: 'om', name: 'OM', price: 65, category: 'tes' },
+    { id: 'yellow_sow', name: 'Yellow sow', price: 65, category: 'tes' },
+    { id: 'berry_bunch', name: 'Berry bunch', price: 70, category: 'tes' },
+    { id: 'frappe_oreo', name: 'Frappe de Oreo', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_caramelo', name: 'Frappe de caramelo', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_vainilla', name: 'Frappe de vainilla', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_mazapan', name: 'Frappe de mazapán', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'extra_shot', name: 'Shot espresso', price: 20, category: 'extras' },
+    { id: 'extra_foam', name: 'Foam', price: 20, category: 'extras' },
+    { id: 'extra_jarabe', name: 'Jarabe artesanal', price: 15, category: 'extras' },
+    { id: 'extra_leche_avena_soya', name: 'Leche de avena o soya', price: 20, category: 'extras' },
+    { id: 'extra_leche_almendra', name: 'Leche de almendra s/azúcar', price: 15, category: 'extras' },
+  ];
+  const MENU_VERSION = 5;
+
+  let menu = [];
+  let order = {};
+  let editMode = false;
+  let pendingItem = null;
+  let pendingMilk = 'entera';
+  let pendingQty = 1;
+  let activeSaleId = null;
+
+  const menuScroll = document.getElementById('menuScroll');
+  const orderList = document.getElementById('orderList');
+  const totalAmount = document.getElementById('totalAmount');
+  const newOrderBtn = document.getElementById('newOrderBtn');
+  const printBtn = document.getElementById('printBtn');
+  const reportBtn = document.getElementById('reportBtn');
+  const subtotalAmount = document.getElementById('subtotalAmount');
+  const ivaAmount = document.getElementById('ivaAmount');
+  const editToggle = document.getElementById('editToggle');
+  const dateSub = document.getElementById('dateSub');
+  const receipt = document.getElementById('receipt');
+  const milkOverlay = document.getElementById('milkOverlay');
+  const modalItemName = document.getElementById('modalItemName');
+  const modalItemPrice = document.getElementById('modalItemPrice');
+  const milkChips = document.getElementById('milkChips');
+  const modalQtyValue = document.getElementById('modalQtyValue');
+  const IVA_RATE = 0.08;
+  const LOGO_SRC = '../logo_negro_vaso_transparente.png';
+  const SALES_KEY = 'sales';
+  let saleLoggedForOrder = false;
+
+  dateSub.textContent = new Date().toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
+
+  function fmt(n){
+    return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: n % 1 !== 0 ? 2 : 0, maximumFractionDigits: 2 });
+  }
+
+  function calculateTaxes(subtotal){
+    const iva = subtotal * IVA_RATE;
+    return { iva, total: subtotal + iva };
+  }
+
+  function escapeHTML(value){
+    return String(value).replace(/[&<>'"]/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[character]));
+  }
+
+  async function storageGet(key){
+    if(window.storage && typeof window.storage.get === 'function') return window.storage.get(key, false);
+    const value = window.localStorage.getItem('on-coffee-' + key);
+    return value === null ? null : { value };
+  }
+
+  async function storageSet(key, value){
+    if(window.storage && typeof window.storage.set === 'function') return window.storage.set(key, value, false);
+    window.localStorage.setItem('on-coffee-' + key, value);
+  }
+
+  function milkLabel(id){
+    const m = MILK_OPTIONS.find(x => x.id === id);
+    return m ? m.label : null;
+  }
+
+  async function loadMenu(){
+    try{
+      const verRes = await storageGet('menu-version');
+      const storedVersion = verRes && verRes.value ? parseInt(verRes.value, 10) : 0;
+      if(storedVersion < MENU_VERSION){
+        menu = DEFAULT_MENU.slice();
+        await saveMenu();
+        await storageSet('menu-version', String(MENU_VERSION));
+        return;
+      }
+      const res = await storageGet('menu-items');
+      if(res && res.value){
+        const savedMenu = JSON.parse(res.value);
+        if(Array.isArray(savedMenu)){
+          menu = savedMenu;
+          return;
+        }
+      }
+    }catch(e){  }
+    menu = DEFAULT_MENU.slice();
+    await saveMenu();
+    try{ await storageSet('menu-version', String(MENU_VERSION)); }catch(e){}
+  }
+
+  async function saveMenu(){
+    try{
+      await storageSet('menu-items', JSON.stringify(menu));
+    }catch(e){ console.error('No se pudo guardar el menú', e); }
+  }
+
+  function uid(){
+    return 'item_' + Math.random().toString(36).slice(2, 9);
+  }
+
+  function categoryOptionsHTML(selected){
+    return CATEGORIES.map(c => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${c.label}</option>`).join('');
+  }
+
+  function itemQtyTotal(itemId){
+    return Object.keys(order)
+      .filter(k => k.startsWith(itemId + '::'))
+      .reduce((sum, k) => sum + order[k], 0);
+  }
+
+  function renderItemBtn(item){
+    const btn = document.createElement('div');
+    btn.className = 'item-btn' + (editMode ? ' editing' : '');
+
+    if(editMode){
+      btn.innerHTML = `
+        <button class="del-btn" data-del="${item.id}">✕</button>
+        <div class="edit-row">
+          <input type="text" value="${escapeHTML(item.name)}" data-field="name" data-id="${item.id}" />
+        </div>
+        <div class="edit-row">
+          <input type="number" value="${item.price}" min="0" step="0.5" data-field="price" data-id="${item.id}" />
+        </div>
+        <div class="edit-row">
+          <select data-field="category" data-id="${item.id}">${categoryOptionsHTML(item.category)}</select>
+        </div>
+      `;
+    } else {
+      const qty = itemQtyTotal(item.id);
+      btn.innerHTML = `
+        ${qty > 0 ? `<div class="qty-badge">${qty}</div>` : ''}
+        <div class="item-name">${escapeHTML(item.name)}</div>
+        <div class="item-price">${fmt(item.price)}</div>
+      `;
+      btn.addEventListener('click', () => {
+        if(item.hasMilk){
+          openMilkModal(item);
+        } else {
+          const key = item.id + '::none';
+          order[key] = (order[key] || 0) + 1;
+          renderMenu();
+          renderOrder();
+        }
+      });
+    }
+    return btn;
+  }
+
+  function renderMenu(){
+    menuScroll.innerHTML = '';
+
+    CATEGORIES.forEach(cat => {
+      const items = menu.filter(m => (m.category || 'extras') === cat.id);
+      const block = document.createElement('div');
+      block.className = 'category-block';
+
+      const title = document.createElement('div');
+      title.className = 'category-title';
+      title.innerHTML = `<span class="icon">${cat.icon}</span><h3>${cat.label}</h3><span class="count">${items.length}</span>`;
+      block.appendChild(title);
+
+      if(items.length === 0 && !editMode){
+        const empty = document.createElement('div');
+        empty.className = 'category-empty';
+        empty.textContent = 'Aún no hay productos en esta sección.';
+        block.appendChild(empty);
+      } else {
+        const grid = document.createElement('div');
+        grid.className = 'menu-grid';
+        items.forEach(item => grid.appendChild(renderItemBtn(item)));
+
+        if(editMode){
+          const addCard = document.createElement('div');
+          addCard.className = 'add-item-card';
+          addCard.innerHTML = `
+            <input type="text" placeholder="Nombre del producto" class="newItemName" />
+            <input type="number" placeholder="Precio" class="newItemPrice" min="0" step="0.5" />
+            <button class="addItemBtn" data-cat="${cat.id}">Agregar a ${cat.label.toLowerCase()}</button>
+          `;
+          grid.appendChild(addCard);
+        }
+
+        block.appendChild(grid);
+      }
+      menuScroll.appendChild(block);
+    });
+
+    if(editMode){
+      menuScroll.querySelectorAll('[data-field="name"]').forEach(input => {
+        input.addEventListener('change', e => {
+          const it = menu.find(m => m.id === e.target.dataset.id);
+          if(it){ it.name = e.target.value.trim() || it.name; saveMenu(); }
+        });
+      });
+      menuScroll.querySelectorAll('[data-field="price"]').forEach(input => {
+        input.addEventListener('change', e => {
+          const it = menu.find(m => m.id === e.target.dataset.id);
+          if(it){ it.price = parseFloat(e.target.value) || 0; saveMenu(); renderOrder(); }
+        });
+      });
+      menuScroll.querySelectorAll('[data-field="category"]').forEach(sel => {
+        sel.addEventListener('change', e => {
+          const it = menu.find(m => m.id === e.target.dataset.id);
+          if(it){ it.category = e.target.value; saveMenu(); renderMenu(); }
+        });
+      });
+      menuScroll.querySelectorAll('[data-del]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const id = e.target.dataset.del;
+          menu = menu.filter(m => m.id !== id);
+          Object.keys(order).forEach(k => { if(k.startsWith(id + '::')) delete order[k]; });
+          saveMenu();
+          renderMenu();
+          renderOrder();
+        });
+      });
+      menuScroll.querySelectorAll('.addItemBtn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const card = e.target.closest('.add-item-card');
+          const nameEl = card.querySelector('.newItemName');
+          const priceEl = card.querySelector('.newItemPrice');
+          const name = nameEl.value.trim();
+          const price = parseFloat(priceEl.value) || 0;
+          const category = e.target.dataset.cat;
+          if(!name) { nameEl.focus(); return; }
+          menu.push({ id: uid(), name, price, category });
+          saveMenu();
+          renderMenu();
+        });
+      });
+    }
+  }
+
+  function openMilkModal(item){
+    pendingItem = item;
+    pendingMilk = 'entera';
+    pendingQty = 1;
+    modalItemName.textContent = item.name;
+    modalItemPrice.textContent = fmt(item.price);
+    modalQtyValue.textContent = pendingQty;
+    renderMilkChips();
+    milkOverlay.classList.add('open');
+  }
+
+  function closeMilkModal(){
+    milkOverlay.classList.remove('open');
+    pendingItem = null;
+  }
+
+  function renderMilkChips(){
+    milkChips.innerHTML = MILK_OPTIONS.map(m =>
+      `<button class="milk-chip ${m.id === pendingMilk ? 'selected' : ''}" data-milk="${m.id}">${m.label}</button>`
+    ).join('');
+    milkChips.querySelectorAll('.milk-chip').forEach(btn => {
+      btn.addEventListener('click', e => {
+        pendingMilk = e.target.dataset.milk;
+        renderMilkChips();
+      });
+    });
+  }
+
+  document.getElementById('modalQtyMinus').addEventListener('click', () => {
+    if(pendingQty > 1){ pendingQty--; modalQtyValue.textContent = pendingQty; }
+  });
+  document.getElementById('modalQtyPlus').addEventListener('click', () => {
+    pendingQty++; modalQtyValue.textContent = pendingQty;
+  });
+  document.getElementById('modalCancel').addEventListener('click', closeMilkModal);
+  document.getElementById('modalConfirm').addEventListener('click', () => {
+    if(!pendingItem) return;
+    const key = pendingItem.id + '::' + pendingMilk;
+    order[key] = (order[key] || 0) + pendingQty;
+    closeMilkModal();
+    renderMenu();
+    renderOrder();
+    updateCurrentSavedSale();
+  });
+  milkOverlay.addEventListener('click', e => {
+    if(e.target.id === 'milkOverlay') closeMilkModal();
+  });
+
+  function changeQty(key, delta){
+    if(!order[key]) return;
+    order[key] += delta;
+    if(order[key] <= 0) delete order[key];
+    renderMenu();
+    renderOrder();
+    if(activeSaleId && Object.keys(order).length > 0){
+      updateCurrentSavedSale();
+    }
+  }
+
+  function renderOrder(){
+    const keys = Object.keys(order);
+    if(keys.length === 0){
+      orderList.innerHTML = '<div class="empty-order">Toca un producto del menú<br>para agregarlo al pedido</div>';
+      subtotalAmount.textContent = fmt(0);
+      ivaAmount.textContent = fmt(0);
+      totalAmount.textContent = fmt(0);
+      newOrderBtn.disabled = true;
+      printBtn.disabled = true;
+      return;
+    }
+    let total = 0;
+    orderList.innerHTML = '';
+    keys.forEach(key => {
+      const [itemId, milkId] = key.split('::');
+      const item = menu.find(m => m.id === itemId);
+      if(!item) return;
+      const qty = order[key];
+      const lineTotal = item.price * qty;
+      total += lineTotal;
+      const milk = milkId !== 'none' ? milkLabel(milkId) : null;
+      const row = document.createElement('div');
+      row.className = 'order-line';
+      row.innerHTML = `
+        <div class="order-line-name">
+          ${escapeHTML(item.name)}
+          ${milk ? `<br><span class="order-line-milk">${milk}</span>` : ''}
+          <span class="order-line-price">${fmt(item.price)} c/u</span>
+        </div>
+        <div class="stepper">
+          <button data-minus="${key}">−</button>
+          <span>${qty}</span>
+          <button data-plus="${key}">+</button>
+        </div>
+        <div class="line-total">${fmt(lineTotal)}</div>
+      `;
+      orderList.appendChild(row);
+    });
+    orderList.querySelectorAll('[data-minus]').forEach(b => b.addEventListener('click', e => changeQty(e.target.dataset.minus, -1)));
+    orderList.querySelectorAll('[data-plus]').forEach(b => b.addEventListener('click', e => changeQty(e.target.dataset.plus, 1)));
+
+    const taxes = calculateTaxes(total);
+    subtotalAmount.textContent = fmt(total);
+    ivaAmount.textContent = fmt(taxes.iva);
+    totalAmount.textContent = fmt(taxes.total);
+    newOrderBtn.disabled = false;
+    printBtn.disabled = false;
+  }
+
+  newOrderBtn.addEventListener('click', () => {
+    if(Object.keys(order).length > 0){
+      saveSale({ status: 'cancelado', reason: 'Pedido borrado' });
+    }
+    order = {};
+    saleLoggedForOrder = false;
+    activeSaleId = null;
+    renderMenu();
+    renderOrder();
+  });
+
+  function getCurrentOrderData(){
+    const lines = [];
+    let subtotal = 0;
+    Object.keys(order).forEach(key => {
+      const [itemId, milkId] = key.split('::');
+      const item = menu.find(m => m.id === itemId);
+      if(!item) return;
+      const qty = order[key];
+      const lineTotal = item.price * qty;
+      subtotal += lineTotal;
+      lines.push({ name: item.name, qty, milk: milkId !== 'none' ? milkLabel(milkId) : '', price: item.price, lineTotal });
+    });
+    const taxes = calculateTaxes(subtotal);
+    return { lines, subtotal, iva: taxes.iva, total: taxes.total };
+  }
+
+  function buildReceiptHTML(mode){
+    const now = new Date();
+    const fecha = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+    const data = getCurrentOrderData();
+    const customerLinesHtml = data.lines.map(line => {
+      return `
+        <div class="r-line">
+          <span class="r-name">${line.qty} x ${escapeHTML(line.name)}${line.milk ? ' (' + escapeHTML(line.milk) + ')' : ''}</span>
+          <span>${fmt(line.lineTotal)}</span>
+        </div>`;
+    }).join('');
+    const baristaLinesHtml = data.lines.map(line => `
+        <div class="r-line">
+          <span class="r-name">${line.qty} x ${escapeHTML(line.name)}${line.milk ? ' (' + escapeHTML(line.milk) + ')' : ''}</span>
+        </div>`).join('');
+    const baristaHTML = `
+        <div class="r-brand"><img src="${LOGO_SRC}" alt="On Coffee"></div>
+        <div class="r-shop">COMANDA BARISTA</div>
+        <div class="r-meta">${fecha}</div>
+        <hr/>${baristaLinesHtml}<hr/>
+        <div class="r-foot">Preparar pedido</div>`;
+    const customerHTML = `
+      <div class="r-brand"><img src="${LOGO_SRC}" alt="On Coffee"></div>
+      <div class="r-shop">On Coffee</div>
+      <div class="r-meta">${fecha}</div>
+      <hr/>
+      ${customerLinesHtml}
+      <hr/>
+      <div class="r-summary"><span>Subtotal</span><span>${fmt(data.subtotal)}</span></div>
+      <div class="r-summary"><span>IVA (8%)</span><span>${fmt(data.iva)}</span></div>
+      <div class="r-total"><span>TOTAL</span><span>${fmt(data.total)}</span></div>
+      <div class="r-foot">¡Gracias por tu compra!</div>
+    `;
+    return mode === 'barista' ? baristaHTML : mode === 'both'
+      ? customerHTML + '<div class="r-barista">' + baristaHTML + '</div>'
+      : customerHTML;
+  }
+
+  function loadSales(){
+    try{
+      const saved = JSON.parse(localStorage.getItem('on-coffee-' + SALES_KEY) || '[]');
+      return Array.isArray(saved) ? saved : [];
+    }catch(e){ return []; }
+  }
+
+  function saveSale({ status = 'vendido', reason = '' } = {}){
+    if(Object.keys(order).length === 0 && status !== 'cancelado') return null;
+
+    const data = getCurrentOrderData();
+    const sales = loadSales();
+    const timestamp = new Date().toISOString();
+    const baseRecord = {
+      id: activeSaleId || `sale_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      timestamp,
+      status,
+      reason,
+      lines: data.lines,
+      subtotal: data.subtotal,
+      iva: data.iva,
+      total: data.total
+    };
+
+    const existingIndex = sales.findIndex(sale => sale.id === baseRecord.id);
+    if(existingIndex >= 0){
+      sales[existingIndex] = { ...sales[existingIndex], ...baseRecord, updatedAt: timestamp };
+    }else{
+      sales.push(baseRecord);
+    }
+
+    localStorage.setItem('on-coffee-' + SALES_KEY, JSON.stringify(sales));
+
+    if(status === 'cancelado'){
+      activeSaleId = null;
+    }else{
+      activeSaleId = baseRecord.id;
+      saleLoggedForOrder = true;
+    }
+
+    return baseRecord;
+  }
+
+  function updateCurrentSavedSale(){
+    if(!activeSaleId || Object.keys(order).length === 0) return;
+    saveSale({ status: 'vendido', reason: '' });
+  }
+
+  printBtn.addEventListener('click', () => {
+    if(Object.keys(order).length === 0) return;
+    saveSale({ status: 'vendido' });
+    receipt.innerHTML = buildReceiptHTML('both');
+    window.print();
+  });
+
+  function csvCell(value){
+    return '"' + String(value).replace(/"/g, '""') + '"';
+  }
+
+  function localDateKey(date){
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  reportBtn.addEventListener('click', () => {
+    const today = new Date();
+    const day = localDateKey(today);
+    const sales = loadSales().filter(sale => {
+      const date = new Date(sale.timestamp);
+      return localDateKey(date) === day && date.getHours() >= 7 && date.getHours() < 24;
+    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    const vendidos = sales.filter(sale => sale.status !== 'cancelado');
+    const borrados = sales.filter(sale => sale.status === 'cancelado');
+    const subtotalVendidos = vendidos.reduce((sum, sale) => sum + Number(sale.subtotal || 0), 0);
+    const ivaVendidos = vendidos.reduce((sum, sale) => sum + Number(sale.iva || 0), 0);
+    const totalVendidos = vendidos.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+    const totalBorrados = borrados.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+
+    const summaryRows = [
+      ['Fecha', day],
+      ['Ventas realizadas', vendidos.length],
+      ['Pedidos borrados', borrados.length],
+      ['Subtotal vendido', subtotalVendidos.toFixed(2)],
+      ['IVA vendido', ivaVendidos.toFixed(2)],
+      ['Total vendido', totalVendidos.toFixed(2)],
+      ['Total borrados', totalBorrados.toFixed(2)],
+      ['Gran total neto', (totalVendidos - totalBorrados).toFixed(2)]
+    ];
+
+    const detailRows = [['Fecha', 'Hora', 'Estado', 'Producto', 'Leche', 'Cantidad', 'Precio unitario', 'Subtotal venta', 'IVA 8%', 'Total venta', 'Motivo']];
+    sales.forEach(sale => {
+      const date = new Date(sale.timestamp);
+      const status = sale.status === 'cancelado' ? 'Borrado' : 'Vendido';
+      const reason = sale.reason || '';
+
+      if(!sale.lines || sale.lines.length === 0){
+        detailRows.push([
+          date.toLocaleDateString('es-MX'),
+          date.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
+          status,
+          'Pedido',
+          '',
+          '',
+          '',
+          '0.00',
+          '0.00',
+          '0.00',
+          reason
+        ]);
+        return;
+      }
+
+      sale.lines.forEach(line => detailRows.push([
+        date.toLocaleDateString('es-MX'),
+        date.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
+        status,
+        line.name,
+        line.milk || 'No aplica',
+        line.qty,
+        Number(line.price).toFixed(2),
+        Number(sale.subtotal || 0).toFixed(2),
+        Number(sale.iva || 0).toFixed(2),
+        Number(sale.total || 0).toFixed(2),
+        reason
+      ]));
+    });
+
+    const exportContent = [
+      ['Resumen del día'],
+      [],
+      ...summaryRows,
+      [],
+      ['Detalle'],
+      [],
+      ...detailRows
+    ];
+
+    const csv = '\ufeff' + exportContent.map(row => row.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `reporte-on-coffee-${day}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  });
+
+  editToggle.addEventListener('click', () => {
+    editMode = !editMode;
+    editToggle.classList.toggle('active', editMode);
+    editToggle.textContent = editMode ? 'Listo' : 'Editar menú';
+    renderMenu();
+  });
+
+  (async function init(){
+    await loadMenu();
+    renderMenu();
+    renderOrder();
+  })();
+})();
+</script>
+</body>
+</html>

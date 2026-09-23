@@ -1,0 +1,92 @@
+.modal-overlay{
+  position:fixed; inset:0;
+  background: rgba(59,42,30,0.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index: 50;
+  padding: 20px;
+}
+
+.modal-overlay.open{ display:flex; }
+
+.modal-card{
+  background: var(--panel);
+  border-radius: 22px;
+  padding: 22px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 20px 50px rgba(59,42,30,0.3);
+}
+
+.modal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  margin-bottom: 16px;
+}
+
+.modal-header h3{
+  font-family: var(--font-display);
+  font-size:19px;
+  margin:0;
+  line-height:1.25;
+}
+
+.modal-price{
+  font-weight:700;
+  color: var(--accent);
+  font-size: 15px;
+  white-space:nowrap;
+}
+
+.modal-label{
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.milk-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.milk-chip{
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.milk-chip.selected{
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #FFFFFF;
+}
+
+.modal-qty{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 10px 2px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+  font-size:14px;
+  font-weight:500;
+}
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+}

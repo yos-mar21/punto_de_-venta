@@ -1,0 +1,51 @@
+:root{
+  --bg:#F3EEE6;
+  --panel:#FAF7F1;
+  --panel-alt:#DFE5DA;
+  --panel-alt-2:#C8D2C2;
+  --line: rgba(73,48,33,0.16);
+  --ink:#35261D;
+  --muted:#718077;
+  --accent:#8FA18A;
+  --accent-deep:#493021;
+  --accent-soft: rgba(143,161,138,0.2);
+  --cream:#F7F1E7;
+  --danger:#A85F4A;
+  --danger-soft: rgba(168,95,74,0.13);
+  --radius: 12px;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+html,body{margin:0; padding:0; height:100%;}
+
+body{
+  background:
+    radial-gradient(circle at top left, rgba(143,161,138,0.18), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(73,48,33,0.08), transparent 32%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  display:flex;
+  justify-content:center;
+  color-scheme: light;
+}
+
+#app{
+  width: min(100%, 1360px);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  margin: 0 auto;
+}
+
+button, input, select {
+  font: inherit;
+}
+
+::-webkit-scrollbar{ width:6px; }
+::-webkit-scrollbar-thumb{ background: var(--panel-alt-2); border-radius:4px; }
