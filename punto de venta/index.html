@@ -52,7 +52,7 @@
         </div>
       </div>
       <div class="order-footer">
-        <button class="btn btn-secondary" id="printBtn" disabled>Ticket cliente</button>
+        <button class="btn btn-secondary" id="printBtn" disabled>Pagar</button>
         <button class="btn btn-primary" id="newOrderBtn" disabled>Nuevo pedido</button>
       </div>
       <button class="report-btn" id="reportBtn">Descargar reporte Excel</button>
@@ -85,6 +85,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.js"></script>
 <script>
 (function(){
   const CATEGORIES = [
@@ -471,7 +472,7 @@
     ivaAmount.textContent = fmt(taxes.iva);
     totalAmount.textContent = fmt(taxes.total);
     newOrderBtn.disabled = false;
-    printBtn.disabled = false;
+    printBtn.disabled = saleLoggedForOrder;
   }
 
   newOrderBtn.addEventListener('click', () => {
@@ -587,11 +588,120 @@
     saveSale({ status: 'vendido', reason: '' });
   }
 
-  printBtn.addEventListener('click', () => {
-    if(Object.keys(order).length === 0) return;
-    saveSale({ status: 'vendido' });
-    receipt.innerHTML = buildReceiptHTML('both');
-    window.print();
+  let receiptPrinterName = null;
+
+  function escPosSafeText(value){
+    return String(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\x20-\x7E]/g, '');
+  }
+
+  function buildEscPosReceipt(data){
+    const ESC = '\x1B';
+    const width = 42;
+    const divider = '-'.repeat(width);
+    const date = new Date().toLocaleDateString('es-MX') + ' ' +
+      new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    let receiptText = ESC + '@';
+
+    function line(label, value){
+      const safeLabel = escPosSafeText(label);
+      const safeValue = escPosSafeText(value);
+      const spaces = Math.max(1, width - safeLabel.length - safeValue.length);
+      receiptText += safeLabel + ' '.repeat(spaces) + safeValue + '\n';
+    }
+
+    function itemDescription(item){
+      return `${item.qty} x ${item.name}${item.milk ? ' (' + item.milk + ')' : ''}`;
+    }
+
+    receiptText += ESC + 'a' + '\x01' + ESC + 'E' + '\x01' + 'ON COFFEE\n';
+    receiptText += ESC + 'E' + '\x00' + escPosSafeText(date) + '\n' + divider + '\n';
+    receiptText += ESC + 'a' + '\x00';
+    data.lines.forEach(item => {
+      receiptText += escPosSafeText(itemDescription(item)) + '\n';
+      receiptText += '  ' + escPosSafeText(fmt(item.lineTotal)) + '\n';
+    });
+    receiptText += divider + '\n';
+    line('Subtotal', fmt(data.subtotal));
+    line('IVA (8%)', fmt(data.iva));
+    receiptText += ESC + 'E' + '\x01';
+    line('TOTAL', fmt(data.total));
+    receiptText += ESC + 'E' + '\x00' + '\n';
+    receiptText += ESC + 'a' + '\x01' + 'Gracias por tu compra!\n\n\n';
+    receiptText += ESC + 'E' + '\x01' + 'COMANDA BARISTA\n';
+    receiptText += ESC + 'E' + '\x00' + escPosSafeText(date) + '\n' + divider + '\n';
+    receiptText += ESC + 'a' + '\x00';
+    data.lines.forEach(item => {
+      receiptText += escPosSafeText(itemDescription(item)) + '\n';
+    });
+    return receiptText + '\n\n\n';
+  }
+
+  async function getReceiptPrinter(){
+    if(typeof qz === 'undefined'){
+      throw new Error('No se pudo cargar QZ Tray. Revisa tu conexión a internet y vuelve a abrir la página.');
+    }
+    if(!qz.websocket.isActive()){
+      await qz.websocket.connect();
+    }
+
+    const printers = await qz.printers.find();
+    if(!printers.length){
+      throw new Error('QZ Tray no encontró impresoras. Revisa que la Nextep esté encendida y conectada al Mac.');
+    }
+    if(receiptPrinterName && printers.includes(receiptPrinterName)){
+      return receiptPrinterName;
+    }
+
+    const matches = printers.filter(name => /nextep|ne[\s_-]?510x/i.test(name));
+    if(matches.length === 1){
+      receiptPrinterName = matches[0];
+      return receiptPrinterName;
+    }
+
+    const choices = matches.length ? matches : printers;
+    const selection = window.prompt(
+      'Escribe el número de la impresora Nextep:\n' +
+      choices.map((name, index) => `${index + 1}. ${name}`).join('\n'),
+      '1'
+    );
+    const selectedIndex = Number(selection) - 1;
+    if(selection === null || !Number.isInteger(selectedIndex) || !choices[selectedIndex]){
+      throw new Error('No se seleccionó una impresora válida.');
+    }
+    receiptPrinterName = choices[selectedIndex];
+    return receiptPrinterName;
+  }
+
+  printBtn.addEventListener('click', async () => {
+    if(Object.keys(order).length === 0 || saleLoggedForOrder) return;
+    const data = getCurrentOrderData();
+    saveSale({ status: 'vendido', reason: 'Compra pagada' });
+    renderOrder();
+    try{
+      const printer = await getReceiptPrinter();
+      const config = qz.configs.create(printer);
+      const commands = buildEscPosReceipt(data);
+      await qz.print(config, [{
+        type: 'raw',
+        format: 'command',
+        flavor: 'plain',
+        data: commands
+      }]);
+      order = {};
+      activeSaleId = null;
+      saleLoggedForOrder = false;
+      renderMenu();
+      renderOrder();
+    }catch(error){
+      saleLoggedForOrder = false;
+      renderOrder();
+      console.error('Error al imprimir el ticket ESC/POS:', error);
+      alert('No se pudo imprimir el ticket. El pedido sigue en pantalla para que puedas reintentar.\n\n' +
+        (error && error.message ? error.message : String(error)));
+    }
   });
 
   function csvCell(value){
