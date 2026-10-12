@@ -110,12 +110,12 @@
     { id: 'americano_corto', name: 'Americano corto', price: 50, category: 'barra' },
     { id: 'cappuccino', name: 'Cappuccino', price: 60, category: 'barra', hasMilk: true },
     { id: 'latte_natural', name: 'Natural', price: 80, category: 'lattes', hasMilk: true },
-    { id: 'latte_vainilla', name: 'vainilla', price: 85, category: 'lattes', hasMilk: true },
-    { id: 'latte_caramelo', name: 'caramelo', price: 85, category: 'lattes', hasMilk: true },
-    { id: 'latte_avellana', name: 'avellana', price: 85, category: 'lattes', hasMilk: true },
-    { id: 'latte_pumpkin_spice', name: 'pumpkin spice', price: 85, category: 'lattes', hasMilk: true },
-    { id: 'mocha', name: 'Mocha', price: 80, category: 'especialidades', hasMilk: true },
-    { id: 'matcha_latte', name: 'Matcha latte', price: 90, category: 'especialidades', hasMilk: true },
+    { id: 'latte_vainilla', name: 'vainilla', price: 90, category: 'lattes', hasMilk: true },
+    { id: 'latte_caramelo', name: 'caramelo', price: 90, category: 'lattes', hasMilk: true },
+    { id: 'latte_avellana', name: 'avellana', price: 90, category: 'lattes', hasMilk: true },
+    { id: 'latte_pumpkin_spice', name: 'pumpkin spice', price: 90, category: 'lattes', hasMilk: true },
+    { id: 'mocha', name: 'Mocha', price: 90, category: 'especialidades', hasMilk: true },
+    { id: 'matcha_latte', name: 'Matcha latte', price: 100, category: 'especialidades', hasMilk: true },
     { id: 'chai_especias', name: 'Chai de especias', price: 85, category: 'especialidades', hasMilk: true },
     { id: 'chai_vainilla', name: 'Chai de vainilla', price: 85, category: 'especialidades', hasMilk: true },
     { id: 'dirty_chai', name: 'Dirty chai', price: 90, category: 'especialidades', hasMilk: true },
@@ -136,7 +136,7 @@
     { id: 'extra_pastel_chocolate', name: 'REBANADA DE PASTEL CHOCOLATE', price: 60, category: 'extras' },
     { id: 'extra_cheesecake', name: 'REBANADA cheesecake', price: 60, category: 'extras' },
   ];
-  const MENU_VERSION = 6;
+  const MENU_VERSION = 7;
 
   let menu = [];
   let order = {};
@@ -173,9 +173,24 @@
     return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: n % 1 !== 0 ? 2 : 0, maximumFractionDigits: 2 });
   }
 
-  function calculateTaxes(subtotal){
-    const iva = subtotal * IVA_RATE;
-    return { iva, total: subtotal + iva };
+  function calculateLineAmounts(item, amount){
+    const includesIVA = ['barra', 'lattes', 'especialidades', 'extras'].includes(item.category);
+    if(includesIVA){
+      const subtotal = amount / (1 + IVA_RATE);
+      return { subtotal, iva: amount - subtotal, total: amount };
+    }
+    const iva = amount * IVA_RATE;
+    return { subtotal: amount, iva, total: amount + iva };
+  }
+
+  function calculateOrderTotals(lines){
+    return lines.reduce((totals, line) => {
+      const amounts = calculateLineAmounts(line.item, line.amount);
+      totals.subtotal += amounts.subtotal;
+      totals.iva += amounts.iva;
+      totals.total += amounts.total;
+      return totals;
+    }, { subtotal: 0, iva: 0, total: 0 });
   }
 
   function escapeHTML(value){
@@ -437,7 +452,7 @@
       printBtn.disabled = true;
       return;
     }
-    let total = 0;
+    const pricedLines = [];
     orderList.innerHTML = '';
     keys.forEach(key => {
       const [itemId, milkId] = key.split('::');
@@ -445,7 +460,7 @@
       if(!item) return;
       const qty = order[key];
       const lineTotal = item.price * qty;
-      total += lineTotal;
+      pricedLines.push({ item, amount: lineTotal });
       const milk = milkId !== 'none' ? milkLabel(milkId) : null;
       const row = document.createElement('div');
       row.className = 'order-line';
@@ -467,10 +482,10 @@
     orderList.querySelectorAll('[data-minus]').forEach(b => b.addEventListener('click', e => changeQty(e.target.dataset.minus, -1)));
     orderList.querySelectorAll('[data-plus]').forEach(b => b.addEventListener('click', e => changeQty(e.target.dataset.plus, 1)));
 
-    const taxes = calculateTaxes(total);
-    subtotalAmount.textContent = fmt(total);
-    ivaAmount.textContent = fmt(taxes.iva);
-    totalAmount.textContent = fmt(taxes.total);
+    const totals = calculateOrderTotals(pricedLines);
+    subtotalAmount.textContent = fmt(totals.subtotal);
+    ivaAmount.textContent = fmt(totals.iva);
+    totalAmount.textContent = fmt(totals.total);
     newOrderBtn.disabled = false;
     printBtn.disabled = saleLoggedForOrder;
   }
@@ -488,18 +503,18 @@
 
   function getCurrentOrderData(){
     const lines = [];
-    let subtotal = 0;
+    const pricedLines = [];
     Object.keys(order).forEach(key => {
       const [itemId, milkId] = key.split('::');
       const item = menu.find(m => m.id === itemId);
       if(!item) return;
       const qty = order[key];
       const lineTotal = item.price * qty;
-      subtotal += lineTotal;
+      pricedLines.push({ item, amount: lineTotal });
       lines.push({ name: item.name, qty, milk: milkId !== 'none' ? milkLabel(milkId) : '', price: item.price, lineTotal });
     });
-    const taxes = calculateTaxes(subtotal);
-    return { lines, subtotal, iva: taxes.iva, total: taxes.total };
+    const totals = calculateOrderTotals(pricedLines);
+    return { lines, subtotal: totals.subtotal, iva: totals.iva, total: totals.total };
   }
 
   function buildReceiptHTML(mode){
