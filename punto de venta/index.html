@@ -614,11 +614,13 @@
 
   function buildEscPosReceipt(data){
     const ESC = '\x1B';
+    const GS = '\x1D';
+    const fullCut = GS + 'V' + '0';
     const width = 42;
     const divider = '-'.repeat(width);
     const date = new Date().toLocaleDateString('es-MX') + ' ' +
       new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-    let receiptText = ESC + '@';
+    let receiptText = ' '.repeat(Math.floor((width - 9) / 2)) + 'ON COFFEE\n';
 
     function line(label, value){
       const safeLabel = escPosSafeText(label);
@@ -631,7 +633,6 @@
       return `${item.qty} x ${item.name}${item.milk ? ' (' + item.milk + ')' : ''}`;
     }
 
-    receiptText += ESC + 'a' + '\x01' + ESC + 'E' + '\x01' + 'ON COFFEE\n';
     receiptText += ESC + 'E' + '\x00' + escPosSafeText(date) + '\n' + divider + '\n';
     receiptText += ESC + 'a' + '\x00';
     data.lines.forEach(item => {
@@ -644,14 +645,14 @@
     receiptText += ESC + 'E' + '\x01';
     line('TOTAL', fmt(data.total));
     receiptText += ESC + 'E' + '\x00' + '\n';
-    receiptText += ESC + 'a' + '\x01' + 'Gracias por tu compra!\n\n\n';
+    receiptText += ESC + 'a' + '\x01' + 'Gracias por tu compra!\n\n\n' + fullCut;
     receiptText += ESC + 'E' + '\x01' + 'COMANDA BARISTA\n';
     receiptText += ESC + 'E' + '\x00' + escPosSafeText(date) + '\n' + divider + '\n';
     receiptText += ESC + 'a' + '\x00';
     data.lines.forEach(item => {
       receiptText += escPosSafeText(itemDescription(item)) + '\n';
     });
-    return receiptText + '\n\n\n';
+    return receiptText + '\n\n\n' + fullCut;
   }
 
   async function getReceiptPrinter(){
