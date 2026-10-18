@@ -68,8 +68,12 @@
       <h3 id="modalItemName"></h3>
       <div class="modal-price" id="modalItemPrice"></div>
     </div>
-    <div class="modal-label">Tipo de leche</div>
-    <div class="milk-chips" id="milkChips"></div>
+    <div id="milkOptions">
+      <div class="modal-label">Tipo de leche</div>
+      <div class="option-chips" id="milkChips"></div>
+    </div>
+    <div class="modal-label">¿Fría o caliente?</div>
+    <div class="option-chips temperature-chips" id="temperatureChips"></div>
     <div class="modal-qty">
       <span>Cantidad</span>
       <div class="stepper">
@@ -94,6 +98,7 @@
     { id: 'especialidades', label: 'Especialidades', icon: '' },
     { id: 'tes', label: 'Tés y tisanas', icon: '' },
     { id: 'frappes', label: 'Frappes', icon: '' },
+    { id: 'postres', label: 'Postres', icon: '' },
     { id: 'extras', label: 'Extras', icon: '' },
   ];
 
@@ -102,6 +107,12 @@
     { id: 'deslact', label: 'Deslactosada' },
     { id: 'avena', label: 'Avena' },
   ];
+
+  const TEMPERATURE_OPTIONS = [
+    { id: 'caliente', label: 'Caliente' },
+    { id: 'fria', label: 'Fría' },
+  ];
+  const BEVERAGE_CATEGORIES = ['barra', 'lattes', 'especialidades', 'tes', 'frappes'];
 
   const DEFAULT_MENU = [
     { id: 'espresso', name: 'Espresso', price: 45, category: 'barra' },
@@ -122,27 +133,29 @@
     { id: 'chocolate_on', name: 'Chocolate on', price: 90, category: 'especialidades', hasMilk: true },
     { id: 'fresa_kiwi', name: 'Fresa kiwi', price: 80, category: 'tes' },
     { id: 'frutas_pasion', name: 'frutas de la pasión', price: 80, category: 'tes' },
-    { id: 'frappe_oreo', name: 'Frappe de Oreo', price: 92.5, category: 'frappes', hasMilk: true },
-    { id: 'frappe_caramelo', name: 'Frappe de caramelo', price: 92.5, category: 'frappes', hasMilk: true },
-    { id: 'frappe_vainilla', name: 'Frappe de vainilla', price: 92.5, category: 'frappes', hasMilk: true },
-    { id: 'frappe_mazapan', name: 'Frappe de mazapán', price: 92.5, category: 'frappes', hasMilk: true },
-    { id: 'frappe_moka', name: 'FRAPPE DE MOKA', price: 92.5, category: 'frappes', hasMilk: true },
+    { id: 'frappe_oreo', name: 'Frappe de Oreo', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_caramelo', name: 'Frappe de caramelo', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_vainilla', name: 'Frappe de vainilla', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_mazapan', name: 'Frappe de mazapán', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'frappe_moka', name: 'FRAPPE DE MOKA', price: 100, category: 'frappes', hasMilk: true },
+    { id: 'pan_muerto', name: 'Pan de muerto', price: 50, category: 'postres' },
     { id: 'extra_shot', name: 'Shot espresso', price: 20, category: 'extras' },
     { id: 'extra_foam', name: 'Foam', price: 20, category: 'extras' },
     { id: 'extra_jarabe', name: 'Jarabe artesanal', price: 15, category: 'extras' },
     { id: 'extra_leche_avena', name: 'Leche de avena', price: 20, category: 'extras' },
-    { id: 'extra_macarrones', name: 'macarrones', price: 20, category: 'extras' },
-    { id: 'extra_galletas', name: 'GALLETAS', price: 20, category: 'extras' },
-    { id: 'extra_pastel_chocolate', name: 'REBANADA DE PASTEL CHOCOLATE', price: 60, category: 'extras' },
-    { id: 'extra_cheesecake', name: 'REBANADA cheesecake', price: 60, category: 'extras' },
+    { id: 'extra_macarrones', name: 'macarrones', price: 20, category: 'postres' },
+    { id: 'extra_galletas', name: 'GALLETAS', price: 20, category: 'postres' },
+    { id: 'extra_pastel_chocolate', name: 'REBANADA DE PASTEL CHOCOLATE', price: 60, category: 'postres' },
+    { id: 'extra_cheesecake', name: 'REBANADA cheesecake', price: 60, category: 'postres' },
   ];
-  const MENU_VERSION = 7;
+  const MENU_VERSION = 10;
 
   let menu = [];
   let order = {};
   let editMode = false;
   let pendingItem = null;
   let pendingMilk = 'entera';
+  let pendingTemperature = 'caliente';
   let pendingQty = 1;
   let activeSaleId = null;
 
@@ -161,8 +174,11 @@
   const modalItemName = document.getElementById('modalItemName');
   const modalItemPrice = document.getElementById('modalItemPrice');
   const milkChips = document.getElementById('milkChips');
+  const milkOptions = document.getElementById('milkOptions');
+  const temperatureChips = document.getElementById('temperatureChips');
   const modalQtyValue = document.getElementById('modalQtyValue');
   const IVA_RATE = 0.08;
+  const OAT_MILK_EXTRA = 20;
   const LOGO_SRC = '../logo_negro_vaso_transparente.png';
   const SALES_KEY = 'sales';
   let saleLoggedForOrder = false;
@@ -174,7 +190,7 @@
   }
 
   function calculateLineAmounts(item, amount){
-    const includesIVA = ['barra', 'lattes', 'especialidades', 'extras'].includes(item.category);
+    const includesIVA = ['barra', 'lattes', 'especialidades', 'frappes', 'postres', 'extras'].includes(item.category);
     if(includesIVA){
       const subtotal = amount / (1 + IVA_RATE);
       return { subtotal, iva: amount - subtotal, total: amount };
@@ -213,6 +229,19 @@
   function milkLabel(id){
     const m = MILK_OPTIONS.find(x => x.id === id);
     return m ? m.label : null;
+  }
+
+  function temperatureLabel(id){
+    const temperature = TEMPERATURE_OPTIONS.find(option => option.id === id);
+    return temperature ? temperature.label : null;
+  }
+
+  function isBeverage(item){
+    return BEVERAGE_CATEGORIES.includes(item.category);
+  }
+
+  function getUnitPrice(item, milkId){
+    return item.price + (milkId === 'avena' ? OAT_MILK_EXTRA : 0);
   }
 
   async function loadMenu(){
@@ -284,8 +313,8 @@
         <div class="item-price">${fmt(item.price)}</div>
       `;
       btn.addEventListener('click', () => {
-        if(item.hasMilk){
-          openMilkModal(item);
+        if(isBeverage(item)){
+          openDrinkModal(item);
         } else {
           const key = item.id + '::none';
           order[key] = (order[key] || 0) + 1;
@@ -382,15 +411,23 @@
     }
   }
 
-  function openMilkModal(item){
+  function openDrinkModal(item){
     pendingItem = item;
-    pendingMilk = 'entera';
+    pendingMilk = item.hasMilk ? 'entera' : 'none';
+    pendingTemperature = 'caliente';
     pendingQty = 1;
     modalItemName.textContent = item.name;
-    modalItemPrice.textContent = fmt(item.price);
+    updateMilkModalPrice();
     modalQtyValue.textContent = pendingQty;
     renderMilkChips();
+    renderTemperatureChips();
     milkOverlay.classList.add('open');
+  }
+
+  function updateMilkModalPrice(){
+    if(!pendingItem) return;
+    modalItemPrice.textContent = fmt(getUnitPrice(pendingItem, pendingMilk)) +
+      (pendingMilk === 'avena' ? ' (incluye $20 extra)' : '');
   }
 
   function closeMilkModal(){
@@ -399,13 +436,28 @@
   }
 
   function renderMilkChips(){
+    milkOptions.hidden = !pendingItem.hasMilk;
+    if(!pendingItem.hasMilk) return;
     milkChips.innerHTML = MILK_OPTIONS.map(m =>
-      `<button class="milk-chip ${m.id === pendingMilk ? 'selected' : ''}" data-milk="${m.id}">${m.label}</button>`
+      `<button class="option-chip ${m.id === pendingMilk ? 'selected' : ''}" data-milk="${m.id}">${m.label}</button>`
     ).join('');
-    milkChips.querySelectorAll('.milk-chip').forEach(btn => {
+    milkChips.querySelectorAll('.option-chip').forEach(btn => {
       btn.addEventListener('click', e => {
         pendingMilk = e.target.dataset.milk;
+        updateMilkModalPrice();
         renderMilkChips();
+      });
+    });
+  }
+
+  function renderTemperatureChips(){
+    temperatureChips.innerHTML = TEMPERATURE_OPTIONS.map(option =>
+      `<button class="option-chip ${option.id === pendingTemperature ? 'selected' : ''}" data-temperature="${option.id}">${option.label}</button>`
+    ).join('');
+    temperatureChips.querySelectorAll('.option-chip').forEach(btn => {
+      btn.addEventListener('click', e => {
+        pendingTemperature = e.target.dataset.temperature;
+        renderTemperatureChips();
       });
     });
   }
@@ -419,7 +471,7 @@
   document.getElementById('modalCancel').addEventListener('click', closeMilkModal);
   document.getElementById('modalConfirm').addEventListener('click', () => {
     if(!pendingItem) return;
-    const key = pendingItem.id + '::' + pendingMilk;
+    const key = pendingItem.id + '::' + pendingMilk + '::' + pendingTemperature;
     order[key] = (order[key] || 0) + pendingQty;
     closeMilkModal();
     renderMenu();
@@ -455,20 +507,22 @@
     const pricedLines = [];
     orderList.innerHTML = '';
     keys.forEach(key => {
-      const [itemId, milkId] = key.split('::');
+      const [itemId, milkId, temperatureId] = key.split('::');
       const item = menu.find(m => m.id === itemId);
       if(!item) return;
       const qty = order[key];
-      const lineTotal = item.price * qty;
+      const unitPrice = getUnitPrice(item, milkId);
+      const lineTotal = unitPrice * qty;
       pricedLines.push({ item, amount: lineTotal });
       const milk = milkId !== 'none' ? milkLabel(milkId) : null;
+      const temperature = temperatureLabel(temperatureId);
       const row = document.createElement('div');
       row.className = 'order-line';
       row.innerHTML = `
         <div class="order-line-name">
           ${escapeHTML(item.name)}
-          ${milk ? `<br><span class="order-line-milk">${milk}</span>` : ''}
-          <span class="order-line-price">${fmt(item.price)} c/u</span>
+          ${temperature || milk ? `<br><span class="order-line-milk">${[temperature, milk].filter(Boolean).join(' · ')}</span>` : ''}
+          <span class="order-line-price">${fmt(unitPrice)} c/u</span>
         </div>
         <div class="stepper">
           <button data-minus="${key}">−</button>
@@ -505,13 +559,21 @@
     const lines = [];
     const pricedLines = [];
     Object.keys(order).forEach(key => {
-      const [itemId, milkId] = key.split('::');
+      const [itemId, milkId, temperatureId] = key.split('::');
       const item = menu.find(m => m.id === itemId);
       if(!item) return;
       const qty = order[key];
-      const lineTotal = item.price * qty;
+      const unitPrice = getUnitPrice(item, milkId);
+      const lineTotal = unitPrice * qty;
       pricedLines.push({ item, amount: lineTotal });
-      lines.push({ name: item.name, qty, milk: milkId !== 'none' ? milkLabel(milkId) : '', price: item.price, lineTotal });
+      lines.push({
+        name: item.name,
+        qty,
+        milk: milkId !== 'none' ? milkLabel(milkId) : '',
+        temperature: temperatureLabel(temperatureId) || '',
+        price: unitPrice,
+        lineTotal
+      });
     });
     const totals = calculateOrderTotals(pricedLines);
     return { lines, subtotal: totals.subtotal, iva: totals.iva, total: totals.total };
@@ -521,16 +583,19 @@
     const now = new Date();
     const fecha = now.toLocaleDateString('es-MX') + ' ' + now.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
     const data = getCurrentOrderData();
+    function lineOptions(line){
+      return [line.temperature, line.milk].filter(Boolean).join(', ');
+    }
     const customerLinesHtml = data.lines.map(line => {
       return `
         <div class="r-line">
-          <span class="r-name">${line.qty} x ${escapeHTML(line.name)}${line.milk ? ' (' + escapeHTML(line.milk) + ')' : ''}</span>
+          <span class="r-name">${line.qty} x ${escapeHTML(line.name)}${lineOptions(line) ? ' (' + escapeHTML(lineOptions(line)) + ')' : ''}</span>
           <span>${fmt(line.lineTotal)}</span>
         </div>`;
     }).join('');
     const baristaLinesHtml = data.lines.map(line => `
         <div class="r-line">
-          <span class="r-name">${line.qty} x ${escapeHTML(line.name)}${line.milk ? ' (' + escapeHTML(line.milk) + ')' : ''}</span>
+          <span class="r-name">${line.qty} x ${escapeHTML(line.name)}${lineOptions(line) ? ' (' + escapeHTML(lineOptions(line)) + ')' : ''}</span>
         </div>`).join('');
     const baristaHTML = `
         <div class="r-brand"><img src="${LOGO_SRC}" alt="On Coffee"></div>
@@ -630,7 +695,8 @@
     }
 
     function itemDescription(item){
-      return `${item.qty} x ${item.name}${item.milk ? ' (' + item.milk + ')' : ''}`;
+      const options = [item.temperature, item.milk].filter(Boolean).join(', ');
+      return `${item.qty} x ${item.name}${options ? ' (' + options + ')' : ''}`;
     }
 
     receiptText += ESC + 'E' + '\x00' + escPosSafeText(date) + '\n' + divider + '\n';
@@ -757,7 +823,7 @@
       ['Gran total neto', (totalVendidos - totalBorrados).toFixed(2)]
     ];
 
-    const detailRows = [['Fecha', 'Hora', 'Estado', 'Producto', 'Leche', 'Cantidad', 'Precio unitario', 'Subtotal venta', 'IVA 8%', 'Total venta', 'Motivo']];
+    const detailRows = [['Fecha', 'Hora', 'Estado', 'Producto', 'Temperatura', 'Leche', 'Cantidad', 'Precio unitario', 'Subtotal venta', 'IVA 8%', 'Total venta', 'Motivo']];
     sales.forEach(sale => {
       const date = new Date(sale.timestamp);
       const status = sale.status === 'cancelado' ? 'Borrado' : 'Vendido';
@@ -769,6 +835,7 @@
           date.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
           status,
           'Pedido',
+          '',
           '',
           '',
           '',
@@ -785,6 +852,7 @@
         date.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'}),
         status,
         line.name,
+        line.temperature || 'No aplica',
         line.milk || 'No aplica',
         line.qty,
         Number(line.price).toFixed(2),
