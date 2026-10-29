@@ -185,19 +185,14 @@
     return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: n % 1 !== 0 ? 2 : 0, maximumFractionDigits: 2 });
   }
 
-  function calculateLineAmounts(item, amount){
-    const includesIVA = ['barra', 'lattes', 'especialidades', 'frappes', 'postres', 'extras'].includes(item.category);
-    if(includesIVA){
-      const subtotal = amount / (1 + IVA_RATE);
-      return { subtotal, iva: amount - subtotal, total: amount };
-    }
-    const iva = amount * IVA_RATE;
-    return { subtotal: amount, iva, total: amount + iva };
+  function calculateLineAmounts(amount){
+    const subtotal = amount / (1 + IVA_RATE);
+    return { subtotal, iva: amount - subtotal, total: amount };
   }
 
   function calculateOrderTotals(lines){
     return lines.reduce((totals, line) => {
-      const amounts = calculateLineAmounts(line.item, line.amount);
+      const amounts = calculateLineAmounts(line.amount);
       totals.subtotal += amounts.subtotal;
       totals.iva += amounts.iva;
       totals.total += amounts.total;
@@ -606,8 +601,7 @@
       <hr/>
       ${customerLinesHtml}
       <hr/>
-      <div class="r-summary"><span>Subtotal</span><span>${fmt(data.subtotal)}</span></div>
-      <div class="r-summary"><span>IVA (8%)</span><span>${fmt(data.iva)}</span></div>
+      <div class="r-meta">Precios con IVA incluido</div>
       <div class="r-total"><span>TOTAL</span><span>${fmt(data.total)}</span></div>
       <div class="r-foot">¡Gracias por tu compra!</div>
     `;
@@ -702,8 +696,8 @@
       receiptText += '  ' + escPosSafeText(fmt(item.lineTotal)) + '\n';
     });
     receiptText += divider + '\n';
-    line('Subtotal', fmt(data.subtotal));
-    line('IVA (8%)', fmt(data.iva));
+    receiptText += ESC + 'a' + '\x01' + escPosSafeText('Precios con IVA incluido') + '\n';
+    receiptText += ESC + 'a' + '\x00';
     receiptText += ESC + 'E' + '\x01';
     line('TOTAL', fmt(data.total));
     receiptText += ESC + 'E' + '\x00' + '\n';
